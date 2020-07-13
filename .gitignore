@@ -1,0 +1,4 @@
+*.swp
+TODO
+/app-checker
+!vendor/**
