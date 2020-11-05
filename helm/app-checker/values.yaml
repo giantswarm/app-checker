@@ -1,24 +1,30 @@
+# Default values for app-checker-chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
 image:
   name: "app-checker"
-  tag: "2.0.0"
+  tag: [[ .Version ]]
+
 Installation:
   V1:
     Name: mylocal
     Registry:
       Domain: quay.io
     Secret:
-      Draughtsman:
-        SecretYaml: |+
-          service:
-            deployer:
-              eventer:
-                github:
-                  oauthtoken: 51884676b1418b9b16f96d580f65b5e6d441a79b
-pod:
-  user:
-    id: 1000
-  group:
-    id: 1000
+      AppChecker:
+        GithubOAuthToken: ""
+
+userID: 1000
+groupID: 1000
+
+replicas: 1
+
 project:
-  branch: "master"
-  commit: "1.1.1"
+  branch: "[[ .Branch ]]"
+  commit: "[[ .SHA ]]"
+
+deployment:
+  requests:
+    cpu: 250m
+    memory: 250Mi

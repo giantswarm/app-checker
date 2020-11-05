@@ -6,17 +6,13 @@ import (
 	"context"
 	"sync"
 
-	"github.com/giantswarm/k8sclient/v3/pkg/k8sclient"
-	"github.com/giantswarm/k8sclient/v3/pkg/k8srestconfig"
 	"github.com/giantswarm/microendpoint/service/version"
 	"github.com/giantswarm/microerror"
 	"github.com/giantswarm/micrologger"
 	"github.com/spf13/viper"
-	"k8s.io/client-go/rest"
 
 	"github.com/giantswarm/app-checker/flag"
 	"github.com/giantswarm/app-checker/pkg/project"
-	"github.com/giantswarm/app-checker/service/controller"
 )
 
 // Config represents the configuration used to create a new service.
@@ -30,24 +26,16 @@ type Config struct {
 type Service struct {
 	Version *version.Service
 
-	bootOnce   sync.Once
-	appChecker *controller.AppChecker
+	bootOnce sync.Once
 }
 
 // New creates a new configured service object.
 func New(config Config) (*Service, error) {
-	var serviceAddress string
-	// Settings.
 	if config.Flag == nil {
 		return nil, microerror.Maskf(invalidConfigError, "config.Flag must not be empty")
 	}
 	if config.Viper == nil {
 		return nil, microerror.Maskf(invalidConfigError, "config.Viper must not be empty")
-	}
-	if config.Flag.Service.Kubernetes.KubeConfig == "" {
-		serviceAddress = config.Viper.GetString(config.Flag.Service.Kubernetes.Address)
-	} else {
-		serviceAddress = ""
 	}
 
 	// Dependencies.
@@ -56,57 +44,6 @@ func New(config Config) (*Service, error) {
 	}
 
 	var err error
-
-	var restConfig *rest.Config
-	{
-		c := k8srestconfig.Config{
-			Logger: config.Logger,
-
-			Address:    serviceAddress,
-			InCluster:  config.Viper.GetBool(config.Flag.Service.Kubernetes.InCluster),
-			KubeConfig: config.Viper.GetString(config.Flag.Service.Kubernetes.KubeConfig),
-			TLS: k8srestconfig.ConfigTLS{
-				CAFile:  config.Viper.GetString(config.Flag.Service.Kubernetes.TLS.CAFile),
-				CrtFile: config.Viper.GetString(config.Flag.Service.Kubernetes.TLS.CrtFile),
-				KeyFile: config.Viper.GetString(config.Flag.Service.Kubernetes.TLS.KeyFile),
-			},
-		}
-
-		restConfig, err = k8srestconfig.New(c)
-		if err != nil {
-			return nil, microerror.Mask(err)
-		}
-	}
-
-	var k8sClient k8sclient.Interface
-	{
-		c := k8sclient.ClientsConfig{
-			Logger:     config.Logger,
-			RestConfig: restConfig,
-		}
-
-		k8sClient, err = k8sclient.NewClients(c)
-		if err != nil {
-			return nil, microerror.Mask(err)
-		}
-	}
-
-	var appCheckerController *controller.AppChecker
-	{
-
-		c := controller.AppCheckerConfig{
-			K8sClient: k8sClient,
-			Logger:    config.Logger,
-
-			Environment:      config.Viper.GetString(config.Flag.Service.AppChecker.Environment),
-			GithubOAuthToken: config.Viper.GetString(config.Flag.Service.AppChecker.GitHubOAuthToken),
-		}
-
-		appCheckerController, err = controller.NewAppChecker(c)
-		if err != nil {
-			return nil, microerror.Mask(err)
-		}
-	}
 
 	var versionService *version.Service
 	{
@@ -127,8 +64,7 @@ func New(config Config) (*Service, error) {
 	s := &Service{
 		Version: versionService,
 
-		bootOnce:   sync.Once{},
-		appChecker: appCheckerController,
+		bootOnce: sync.Once{},
 	}
 
 	return s, nil
@@ -136,6 +72,6 @@ func New(config Config) (*Service, error) {
 
 func (s *Service) Boot(ctx context.Context) {
 	s.bootOnce.Do(func() {
-		go s.appChecker.Boot(ctx)
+
 	})
 }

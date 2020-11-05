@@ -7,24 +7,41 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/giantswarm/k8sclient/v5/pkg/k8sclient"
 	"github.com/giantswarm/microerror"
 	microserver "github.com/giantswarm/microkit/server"
 	"github.com/giantswarm/micrologger"
 	"github.com/spf13/viper"
 
+	"github.com/giantswarm/app-checker/flag"
 	"github.com/giantswarm/app-checker/pkg/project"
 	"github.com/giantswarm/app-checker/server/endpoint"
 	"github.com/giantswarm/app-checker/service"
 )
 
 type Config struct {
-	Logger  micrologger.Logger
-	Service *service.Service
+	Flag      *flag.Flag
+	K8sClient k8sclient.Interface
+	Logger    micrologger.Logger
+	Service   *service.Service
 
 	Viper *viper.Viper
 }
 
 func New(config Config) (microserver.Server, error) {
+	if config.Flag == nil {
+		return nil, microerror.Maskf(invalidConfigError, "%T.Flag must not be empty", config)
+	}
+	if config.K8sClient == nil {
+		return nil, microerror.Maskf(invalidConfigError, "%T.K8sClient must not be empty", config)
+	}
+	if config.Logger == nil {
+		return nil, microerror.Maskf(invalidConfigError, "%T.Logger must not be empty", config)
+	}
+	if config.Viper == nil {
+		return nil, microerror.Maskf(invalidConfigError, "%T.Viper must not be empty", config)
+	}
+
 	var err error
 
 	var endpointCollection *endpoint.Endpoint
@@ -32,6 +49,10 @@ func New(config Config) (microserver.Server, error) {
 		c := endpoint.Config{
 			Logger:  config.Logger,
 			Service: config.Service,
+
+			Environment:      viper.GetString(config.Flag.Service.AppChecker.Environment),
+			GithubToken:      viper.GetString(config.Flag.Service.AppChecker.GitHubToken),
+			WebhookSecretKey: []byte(viper.GetString(config.Flag.Service.AppChecker.WebhookSecretKey)),
 		}
 
 		endpointCollection, err = endpoint.New(c)
@@ -50,6 +71,7 @@ func New(config Config) (microserver.Server, error) {
 			Viper:       config.Viper,
 
 			Endpoints: []microserver.Endpoint{
+				endpointCollection.GithubWebhook,
 				endpointCollection.Healthz,
 				endpointCollection.Version,
 			},

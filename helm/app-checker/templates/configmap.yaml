@@ -16,12 +16,6 @@ data:
     service:
       appchecker:
         environment: '{{ .Values.Installation.V1.Name }}'
-        {{- $v := .Values.Installation.V1.Secret.Draughtsman.SecretYaml  | fromYaml }}
-        gitHubOAuthToken: '{{ $v.service.deployer.eventer.github.oauthtoken }}'
+        webhookBaseURL: 'https://{{ include "resource.default.name" . }}.{{ .Values.Installation.V1.Kubernetes.API.Address }}'
       kubernetes:
-        address: ''
-        inCluster: true
-        tls:
-          caFile: ''
-          crtFile: ''
-          keyFile: ''
+        incluster: true

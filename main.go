@@ -3,11 +3,15 @@ package main
 import (
 	"context"
 
+	applicationv1alpha1 "github.com/giantswarm/apiextensions/v3/pkg/apis/application/v1alpha1"
+	"github.com/giantswarm/k8sclient/v5/pkg/k8sclient"
+	"github.com/giantswarm/k8sclient/v5/pkg/k8srestconfig"
 	"github.com/giantswarm/microerror"
 	"github.com/giantswarm/microkit/command"
 	microserver "github.com/giantswarm/microkit/server"
 	"github.com/giantswarm/micrologger"
 	"github.com/spf13/viper"
+	"k8s.io/client-go/rest"
 
 	"github.com/giantswarm/app-checker/flag"
 	"github.com/giantswarm/app-checker/pkg/project"
@@ -16,7 +20,7 @@ import (
 )
 
 var (
-	f *flag.Flag = flag.New()
+	f = flag.New()
 )
 
 func main() {
@@ -29,11 +33,12 @@ func main() {
 func mainE(ctx context.Context) error {
 	var err error
 
-	var logger micrologger.Logger
+	// Create a new logger that is used by all packages.
+	var newLogger micrologger.Logger
 	{
 		c := micrologger.Config{}
 
-		logger, err = micrologger.New(c)
+		newLogger, err = micrologger.New(c)
 		if err != nil {
 			return microerror.Mask(err)
 		}
@@ -42,11 +47,49 @@ func mainE(ctx context.Context) error {
 	// We define a server factory to create the custom server once all command
 	// line flags are parsed and all microservice configuration is storted out.
 	serverFactory := func(v *viper.Viper) microserver.Server {
+		var restConfig *rest.Config
+		{
+			c := k8srestconfig.Config{
+				Logger: newLogger,
+
+				Address:    v.GetString(f.Service.Kubernetes.Address),
+				InCluster:  v.GetBool(f.Service.Kubernetes.InCluster),
+				KubeConfig: v.GetString(f.Service.Kubernetes.KubeConfig),
+				TLS: k8srestconfig.ConfigTLS{
+					CAFile:  v.GetString(f.Service.Kubernetes.TLS.CAFile),
+					CrtFile: v.GetString(f.Service.Kubernetes.TLS.CrtFile),
+					KeyFile: v.GetString(f.Service.Kubernetes.TLS.KeyFile),
+				},
+			}
+
+			restConfig, err = k8srestconfig.New(c)
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		var k8sClient k8sclient.Interface
+		{
+			c := k8sclient.ClientsConfig{
+				Logger: newLogger,
+				SchemeBuilder: k8sclient.SchemeBuilder{
+					applicationv1alpha1.AddToScheme,
+				},
+
+				RestConfig: restConfig,
+			}
+
+			k8sClient, err = k8sclient.NewClients(c)
+			if err != nil {
+				panic(err)
+			}
+		}
+
 		// Create a new custom service which implements business logic.
 		var newService *service.Service
 		{
 			c := service.Config{
-				Logger: logger,
+				Logger: newLogger,
 
 				Flag:  f,
 				Viper: v,
@@ -64,8 +107,10 @@ func mainE(ctx context.Context) error {
 		var newServer microserver.Server
 		{
 			c := server.Config{
-				Logger:  logger,
-				Service: newService,
+				Flag:      f,
+				K8sClient: k8sClient,
+				Logger:    newLogger,
+				Service:   newService,
 
 				Viper: v,
 			}
@@ -83,7 +128,7 @@ func mainE(ctx context.Context) error {
 	var newCommand command.Command
 	{
 		c := command.Config{
-			Logger:        logger,
+			Logger:        newLogger,
 			ServerFactory: serverFactory,
 
 			Description: project.Description(),
@@ -102,7 +147,8 @@ func mainE(ctx context.Context) error {
 	daemonCommand := newCommand.DaemonCommand().CobraCommand()
 
 	daemonCommand.PersistentFlags().String(f.Service.AppChecker.Environment, "", "Environment name that app-checker is running in.")
-	daemonCommand.PersistentFlags().String(f.Service.AppChecker.GitHubOAuthToken, "", "OAuth token for authenticating against GitHub. Needs 'repo_deployment' scope.\"")
+	daemonCommand.PersistentFlags().String(f.Service.AppChecker.GitHubToken, "", "OAuth token for authenticating against GitHub. Needs 'repo_deployment' scope.\"")
+	daemonCommand.PersistentFlags().String(f.Service.AppChecker.WebhookSecretKey, "", "Secret key to decrypt webhook payload.\"")
 
 	daemonCommand.PersistentFlags().String(f.Service.Kubernetes.Address, "http://127.0.0.1:6443", "Address used to connect to Kubernetes. When empty in-cluster config is created.")
 	daemonCommand.PersistentFlags().Bool(f.Service.Kubernetes.InCluster, false, "Whether to use the in-cluster config to authenticate with Kubernetes.")
