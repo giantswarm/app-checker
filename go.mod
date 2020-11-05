@@ -3,7 +3,6 @@ module github.com/giantswarm/app-checker
 go 1.14
 
 require (
-	github.com/Masterminds/semver v1.5.0
 	github.com/Masterminds/semver/v3 v3.1.0
 	github.com/giantswarm/apiextensions/v3 v3.7.0
 	github.com/giantswarm/app/v3 v3.0.0
@@ -22,7 +21,5 @@ require (
 	k8s.io/client-go v0.18.9
 )
 
-replace (
-	// Use fork of CAPI with Kubernetes 1.18 support.
-	sigs.k8s.io/cluster-api => github.com/giantswarm/cluster-api v0.3.10-gs
-)
+// Use fork of CAPI with Kubernetes 1.18 support.
+replace sigs.k8s.io/cluster-api => github.com/giantswarm/cluster-api v0.3.10-gs
