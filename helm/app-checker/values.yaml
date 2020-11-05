@@ -8,6 +8,9 @@ image:
 
 Installation:
   V1:
+    Kubernetes:
+      API:
+        Address: ""
     Name: mylocal
     Registry:
       Domain: quay.io
