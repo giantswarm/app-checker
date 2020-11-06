@@ -35,6 +35,12 @@ spec:
           items:
           - key: config.yml
             path: config.yml
+      - name: {{ include "name" . }}-secret
+        secret:
+          secretName: {{ include "resource.default.name"  . }}
+          items:
+            - key: secret.yaml
+              path: secret.yaml
       serviceAccountName: {{ include "resource.default.name"  . }}
       securityContext:
         runAsUser: {{ .Values.userID }}
@@ -49,6 +55,9 @@ spec:
         volumeMounts:
         - name: {{ include "name" . }}-configmap
           mountPath: /var/run/{{ include "name" . }}/configmap/
+        - name: {{ include "name" . }}-secret
+          mountPath: /var/run/{{ include "name" . }}/secret/
+          readOnly: true
         livenessProbe:
           httpGet:
             path: /healthz

@@ -39,7 +39,7 @@ func New(config Config) (*Endpoint, error) {
 	}
 
 	if config.Environment == "" {
-		return nil, microerror.Maskf(invalidConfigError, "%T.Env must not be empty", config)
+		return nil, microerror.Maskf(invalidConfigError, "%T.Environment must not be empty", config)
 	}
 	if config.GithubToken == "" {
 		return nil, microerror.Maskf(invalidConfigError, "%T.GithubToken must not be empty", config)
