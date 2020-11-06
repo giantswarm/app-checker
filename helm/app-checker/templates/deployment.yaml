@@ -48,20 +48,25 @@ spec:
       containers:
       - name: {{ include "name" . }}
         image: "{{ .Values.Installation.V1.Registry.Domain }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-        args:
-        - daemon
-        - --config.dirs=/var/run/{{ include "name" . }}/configmap/
-        - --config.files=config
         volumeMounts:
         - name: {{ include "name" . }}-configmap
           mountPath: /var/run/{{ include "name" . }}/configmap/
         - name: {{ include "name" . }}-secret
           mountPath: /var/run/{{ include "name" . }}/secret/
           readOnly: true
+        ports:
+          - name: http
+            containerPort: {{ .Values.port }}
+        args:
+        - daemon
+        - --config.dirs=/var/run/{{ include "name" . }}/configmap/
+        - --config.dirs=/var/run/{{ include "name" . }}/secret/
+        - --config.files=config
+        - --config.files=secret
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 8000
+            port:  {{ .Values.port }}
           initialDelaySeconds: 30
           timeoutSeconds: 1
         resources:
