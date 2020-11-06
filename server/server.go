@@ -47,8 +47,9 @@ func New(config Config) (microserver.Server, error) {
 	var endpointCollection *endpoint.Endpoint
 	{
 		c := endpoint.Config{
-			Logger:  config.Logger,
-			Service: config.Service,
+			K8sClient: config.K8sClient,
+			Logger:    config.Logger,
+			Service:   config.Service,
 
 			Environment:      viper.GetString(config.Flag.Service.AppChecker.Environment),
 			GithubToken:      viper.GetString(config.Flag.Service.AppChecker.GitHubToken),
