@@ -243,6 +243,11 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 		}
 
 		status := strings.ToLower(currentApp.Status.Release.Status)
+		err = e.updateDeploymentStatus(ctx, event, currentApp.Status)
+		if err != nil {
+			return microerror.Mask(err)
+		}
+
 		if status == "deployed" {
 			return nil
 		} else if status == "not installed" || status == "failed" {
@@ -259,6 +264,20 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 	}
 
 	err = backoff.RetryNotify(o, b, n)
+	if err != nil {
+		return microerror.Mask(err)
+	}
+
+	return nil
+}
+
+func (e *Endpoint) updateDeploymentStatus(ctx context.Context, event *github.DeploymentEvent, status v1alpha1.AppStatus) error {
+	request := github.DeploymentStatusRequest{
+		State:       &status.Release.Status,
+		Description: &status.Release.Reason,
+	}
+
+	_, _, err := e.githubClient.Repositories.CreateDeploymentStatus(ctx, event.Repo.Organization.GetName(), event.Repo.GetName(), *event.Deployment.ID, &request)
 	if err != nil {
 		return microerror.Mask(err)
 	}
