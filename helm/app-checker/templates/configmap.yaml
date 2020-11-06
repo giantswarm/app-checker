@@ -14,7 +14,7 @@ data:
       listen:
         address: 'http://0.0.0.0:8000'
     service:
-      appchecker:
+      installation:
         environment: '{{ .Values.Installation.V1.Name }}'
         webhookBaseURL: 'https://{{ include "resource.default.name" . }}.{{ .Values.Installation.V1.Kubernetes.API.Address }}'
       kubernetes:
