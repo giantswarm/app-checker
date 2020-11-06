@@ -5,7 +5,7 @@
 port: 8000
 
 image:
-  name: "app-checker"
+  repository: giantswarm/app-checker
   tag: [[ .Version ]]
 
 Installation:
