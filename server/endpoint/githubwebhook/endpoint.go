@@ -223,6 +223,7 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 
 	// if it exist, update app CR.
 	if !equals(currentApp, desiredAppCR) {
+		desiredAppCR.ObjectMeta.ResourceVersion = currentApp.GetResourceVersion()
 		updateAppCR, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(namespace).Update(ctx, desiredAppCR, metav1.UpdateOptions{})
 		if err != nil {
 			return microerror.Mask(err)
