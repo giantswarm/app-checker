@@ -186,7 +186,7 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 			return microerror.Mask(err)
 		}
 
-		if v.Prerelease() != "" {
+		if v.Prerelease() == "" {
 			catalog = "control-plane-catalog"
 		} else {
 			catalog = "control-plane-test-catalog"
