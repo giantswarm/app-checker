@@ -239,29 +239,39 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 			return backoff.Permanent(microerror.Mask(err))
 		}
 
-		if currentApp.Status.Release.LastDeployed.After(lastDeployed) {
-			return microerror.Maskf(waitError, "app not redeployed lastDeployed=%#q", currentApp.Status.Release.LastDeployed)
-		}
-
 		status := strings.ToLower(currentApp.Status.Release.Status)
-		err = e.updateDeploymentStatus(ctx, event, currentApp.Status)
-		if err != nil {
-			return microerror.Mask(err)
-		}
-
 		if status == "deployed" {
-			return nil
+			if currentApp.Status.Release.LastDeployed.After(lastDeployed) {
+				return microerror.Maskf(waitError, "app had been not deployed after %#q", lastDeployed)
+			}
+
+			err = e.updateDeploymentStatus(ctx, event, "success", "")
+			if err != nil {
+				return microerror.Mask(err)
+			}
 		} else if status == "not installed" || status == "failed" {
+			err = e.updateDeploymentStatus(ctx, event, "failure", currentApp.Status.Release.Reason)
+			if err != nil {
+				return microerror.Mask(err)
+			}
+
 			return backoff.Permanent(microerror.Maskf(executionFailedError, "deployment failed (status: %#q, reason: %#q)", currentApp.Status.Release.Status, currentApp.Status.Release.Reason))
 		} else {
+			err = e.updateDeploymentStatus(ctx, event, "pending", currentApp.Status.Release.Reason)
+			if err != nil {
+				return microerror.Mask(err)
+			}
+
 			return microerror.Maskf(waitError, "app not deployed status:  %#q", currentApp.Status.Release.Status)
 		}
+
+		return nil
 	}
 
 	b := backoff.NewConstant(e.waitDuration, 5*time.Second)
 
 	n := func(err error, t time.Duration) {
-		e.logger.LogCtx(ctx, "level", "debug", "message", fmt.Sprintf("could not get `deployed` status from %#q app", appCRName))
+		e.logger.LogCtx(ctx, "level", "debug", "message", fmt.Sprintf("could not get `deployed` status from %#q app", appCRName), "stack", fmt.Sprintf("%#v", err))
 	}
 
 	err = backoff.RetryNotify(o, b, n)
@@ -272,10 +282,11 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 	return nil
 }
 
-func (e *Endpoint) updateDeploymentStatus(ctx context.Context, event *github.DeploymentEvent, status v1alpha1.AppStatus) error {
+func (e *Endpoint) updateDeploymentStatus(ctx context.Context, event *github.DeploymentEvent, status, reason string) error {
 	request := github.DeploymentStatusRequest{
-		State:       &status.Release.Status,
-		Description: &status.Release.Reason,
+		State:       &status,
+		Description: &reason,
+		Environment: &e.env,
 	}
 
 	_, _, err := e.githubClient.Repositories.CreateDeploymentStatus(ctx, *event.Repo.Owner.Login, event.Repo.GetName(), *event.Deployment.ID, &request)
