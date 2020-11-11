@@ -278,7 +278,7 @@ func (e *Endpoint) updateDeploymentStatus(ctx context.Context, event *github.Dep
 		Description: &status.Release.Reason,
 	}
 
-	_, _, err := e.githubClient.Repositories.CreateDeploymentStatus(ctx, event.Repo.Organization.GetName(), event.Repo.GetName(), *event.Deployment.ID, &request)
+	_, _, err := e.githubClient.Repositories.CreateDeploymentStatus(ctx, event.Repo.GetOrganization().GetName(), event.Repo.GetName(), *event.Deployment.ID, &request)
 	if err != nil {
 		return microerror.Mask(err)
 	}
