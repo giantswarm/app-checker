@@ -242,7 +242,7 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 		status := strings.ToLower(currentApp.Status.Release.Status)
 		if status == "deployed" {
 			if currentApp.Status.Release.LastDeployed.After(lastDeployed) {
-				return microerror.Maskf(waitError, "app had been not deployed after %#q", lastDeployed)
+				return microerror.Maskf(waitError, "app had been not deployed after %#q, current deployment time: %#q", lastDeployed, currentApp.Status.Release.LastDeployed)
 			}
 
 			err = e.updateDeploymentStatus(ctx, event, "success", "")
