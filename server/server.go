@@ -52,8 +52,8 @@ func New(config Config) (microserver.Server, error) {
 			Service:   config.Service,
 
 			Environment:      config.Viper.GetString(config.Flag.Service.Installation.Environment),
-			GithubToken:      config.Viper.GetString(config.Flag.Service.Tokens.GitHubToken),
-			WebhookSecretKey: []byte(config.Viper.GetString(config.Flag.Service.Tokens.WebhookSecretKey)),
+			GithubToken:      config.Viper.GetString(config.Flag.Service.Github.GitHubToken),
+			WebhookSecretKey: []byte(config.Viper.GetString(config.Flag.Service.Github.WebhookSecretKey)),
 		}
 
 		endpointCollection, err = endpoint.New(c)

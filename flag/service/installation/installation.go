@@ -1,5 +1,6 @@
 package installation
 
 type Installation struct {
-	Environment string
+	Environment    string
+	WebhookBaseURL string
 }

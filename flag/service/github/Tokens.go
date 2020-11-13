@@ -1,6 +1,6 @@
-package tokens
+package github
 
-type Tokens struct {
+type Github struct {
 	GitHubToken      string
 	WebhookSecretKey string
 }

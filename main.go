@@ -146,9 +146,10 @@ func mainE(ctx context.Context) error {
 
 	daemonCommand := newCommand.DaemonCommand().CobraCommand()
 
+	daemonCommand.PersistentFlags().String(f.Service.Github.GitHubToken, "", "OAuth token for authenticating against GitHub. Needs 'repo_deployment' scope.\"")
+	daemonCommand.PersistentFlags().String(f.Service.Github.WebhookSecretKey, "", "Secret key to decrypt webhook payload.\"")
 	daemonCommand.PersistentFlags().String(f.Service.Installation.Environment, "", "Environment name that app-checker is running in.")
-	daemonCommand.PersistentFlags().String(f.Service.Tokens.GitHubToken, "", "OAuth token for authenticating against GitHub. Needs 'repo_deployment' scope.\"")
-	daemonCommand.PersistentFlags().String(f.Service.Tokens.WebhookSecretKey, "", "Secret key to decrypt webhook payload.\"")
+	daemonCommand.PersistentFlags().String(f.Service.Installation.WebhookBaseURL, "", "Webhook address that this operator listening to.")
 
 	daemonCommand.PersistentFlags().String(f.Service.Kubernetes.Address, "http://127.0.0.1:6443", "Address used to connect to Kubernetes. When empty in-cluster config is created.")
 	daemonCommand.PersistentFlags().Bool(f.Service.Kubernetes.InCluster, false, "Whether to use the in-cluster config to authenticate with Kubernetes.")
