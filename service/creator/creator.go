@@ -72,10 +72,14 @@ func (c *Creator) Boot(ctx context.Context) {
 		}
 
 		if !installed {
+			c.logger.LogCtx(ctx, "level", "debug", "message", "create webhook", "stack", fmt.Sprintf("%#v", err))
+
 			err := c.createWebhook(ctx)
 			if err != nil {
 				c.logger.LogCtx(ctx, "level", "debug", "message", "count not create webhook", "stack", fmt.Sprintf("%#v", err))
 			}
+
+			c.logger.LogCtx(ctx, "level", "debug", "message", "created webhook", "stack", fmt.Sprintf("%#v", err))
 		}
 	}
 }
