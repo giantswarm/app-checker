@@ -33,6 +33,16 @@ const (
 	Path = "/"
 )
 
+var (
+	draughtsmanRepositories = map[string]bool{
+		"draughtsman":                true,
+		"aws-app-collection":         true,
+		"azure-app-collection":       true,
+		"kvm-app-collection":         true,
+		"conformance-app-collection": true,
+	}
+)
+
 type Config struct {
 	K8sClient k8sclient.Interface
 	Logger    micrologger.Logger
@@ -122,6 +132,11 @@ func (e Endpoint) Endpoint() kitendpoint.Endpoint {
 		switch event := r.(type) {
 		case *github.DeploymentEvent:
 			if *event.Deployment.Environment == e.env {
+				if draughtsmanRepositories[*event.Repo.Name] {
+					e.logger.LogCtx(ctx, "level", "debug", "message", fmt.Sprintf("no need to deploy for draughtsman project %#q", *event.Repo.Name))
+					return nil, nil
+				}
+
 				err := e.processDeploymentEvent(ctx, event)
 				if err != nil {
 					return nil, microerror.Mask(err)
@@ -135,53 +150,23 @@ func (e Endpoint) Endpoint() kitendpoint.Endpoint {
 }
 
 func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.DeploymentEvent) error {
-
-	var payload map[string]interface{}
-	{
-		err := json.Unmarshal(event.Deployment.Payload, &payload)
-		if err != nil {
-			return microerror.Mask(err)
-		}
+	payload, err := parsePayload(event.Deployment.Payload)
+	if err != nil {
+		return microerror.Mask(err)
 	}
 
 	var appCRName string
 	{
-		rawUnique, ok := payload["unique"]
-		if !ok {
-			return microerror.Maskf(decodeFailedError, "not found field `unique` in payload")
-		}
-
-		unique := rawUnique.(bool)
-		if unique {
+		if payload.Unique {
 			appCRName = fmt.Sprintf("%s-%s", *event.Repo.Name, "unique")
 		} else {
 			appCRName = fmt.Sprintf("%s-%s", *event.Repo.Name, *event.Deployment.Ref)
 		}
 	}
 
-	var appVersion string
-	{
-		rawAppVersion, ok := payload["appVersion"]
-		if !ok {
-			return microerror.Maskf(decodeFailedError, "not found field `appVersion` in payload")
-		}
-
-		appVersion = rawAppVersion.(string)
-	}
-
-	var namespace string
-	{
-		rawNamespace, ok := payload["namespace"]
-		if !ok {
-			return microerror.Maskf(decodeFailedError, "not found field `namespace` in payload")
-		}
-
-		namespace = rawNamespace.(string)
-	}
-
 	var catalog string
 	{
-		v, err := semver.NewVersion(appVersion)
+		v, err := semver.NewVersion(payload.AppVersion)
 		if err != nil {
 			return microerror.Mask(err)
 		}
@@ -199,9 +184,9 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 
 	appConfig := app.Config{
 		AppName:             *event.Repo.Name,
-		AppNamespace:        namespace,
+		AppNamespace:        payload.Namespace,
 		AppCatalog:          catalog,
-		AppVersion:          appVersion,
+		AppVersion:          payload.AppVersion,
 		DisableForceUpgrade: true,
 		Name:                appCRName,
 	}
@@ -209,9 +194,9 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 	desiredAppCR := app.NewCR(appConfig)
 
 	// Find matching app CR.
-	currentApp, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(namespace).Get(ctx, appCRName, metav1.GetOptions{})
+	currentApp, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(payload.Namespace).Get(ctx, appCRName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
-		_, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(namespace).Create(ctx, desiredAppCR, metav1.CreateOptions{})
+		_, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(payload.Namespace).Create(ctx, desiredAppCR, metav1.CreateOptions{})
 		if err != nil {
 			return microerror.Mask(err)
 		}
@@ -224,7 +209,7 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 	// if it exist, update app CR.
 	if !equals(currentApp, desiredAppCR) {
 		desiredAppCR.ObjectMeta.ResourceVersion = currentApp.GetResourceVersion()
-		updateAppCR, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(namespace).Update(ctx, desiredAppCR, metav1.UpdateOptions{})
+		updateAppCR, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(payload.Namespace).Update(ctx, desiredAppCR, metav1.UpdateOptions{})
 		if err != nil {
 			return microerror.Mask(err)
 		}
@@ -234,7 +219,7 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 	// waiting for status update.
 	// meanwhile, creating deployment status event.
 	o := func() error {
-		currentApp, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(namespace).Get(ctx, appCRName, metav1.GetOptions{})
+		currentApp, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(payload.Namespace).Get(ctx, appCRName, metav1.GetOptions{})
 		if err != nil {
 			return backoff.Permanent(microerror.Mask(err))
 		}
@@ -326,4 +311,22 @@ func equals(current, desired *v1alpha1.App) bool {
 	}
 
 	return true
+}
+
+func parsePayload(rawPayload []byte) (*payload, error) {
+	var e payload
+
+	err := json.Unmarshal(rawPayload, &e)
+	if err != nil {
+		return nil, microerror.Mask(err)
+	}
+
+	if e.AppVersion == "" {
+		return nil, microerror.Maskf(decodeFailedError, "not found field `appVersion` in payload")
+	}
+	if e.Namespace == "" {
+		return nil, microerror.Maskf(decodeFailedError, "not found field `namespace` in payload")
+	}
+
+	return &e, nil
 }
