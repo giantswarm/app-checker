@@ -69,7 +69,7 @@ func New(config Config) (*Service, error) {
 			Logger: config.Logger,
 
 			GithubToken:      config.Viper.GetString(config.Flag.Service.Github.GitHubToken),
-			WebhookSecretKey: []byte(config.Viper.GetString(config.Flag.Service.Github.WebhookSecretKey)),
+			WebhookSecretKey: config.Viper.GetString(config.Flag.Service.Github.WebhookSecretKey),
 			WebhookURL:       config.Viper.GetString(config.Flag.Service.Installation.WebhookBaseURL),
 		}
 

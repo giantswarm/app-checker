@@ -15,7 +15,7 @@ type CreatorConfig struct {
 	Logger micrologger.Logger
 
 	GithubToken      string
-	WebhookSecretKey []byte
+	WebhookSecretKey string
 	WebhookURL       string
 }
 
@@ -23,7 +23,7 @@ type Creator struct {
 	logger micrologger.Logger
 
 	githubClient     *github.Client
-	webhookSecretKey []byte
+	webhookSecretKey string
 	webhookURL       string
 }
 
@@ -35,7 +35,7 @@ func NewCreator(config CreatorConfig) (*Creator, error) {
 	if config.GithubToken == "" {
 		return nil, microerror.Maskf(invalidConfigError, "%T.GithubToken must not be empty", config)
 	}
-	if config.WebhookSecretKey == nil {
+	if config.WebhookSecretKey == "" {
 		return nil, microerror.Maskf(invalidConfigError, "%T.WebhookSecretKey must not be empty", config)
 	}
 	if config.WebhookURL == "" {
