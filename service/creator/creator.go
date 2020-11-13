@@ -33,13 +33,13 @@ func NewCreator(config CreatorConfig) (*Creator, error) {
 	}
 
 	if config.GithubToken == "" {
-		return nil, microerror.Maskf(invalidConfigError, "%t.GithubToken must not be empty", config)
+		return nil, microerror.Maskf(invalidConfigError, "%T.GithubToken must not be empty", config)
 	}
 	if config.WebhookSecretKey == nil {
-		return nil, microerror.Maskf(invalidConfigError, "%t.WebhookSecretKey must not be empty", config)
+		return nil, microerror.Maskf(invalidConfigError, "%T.WebhookSecretKey must not be empty", config)
 	}
 	if config.WebhookURL == "" {
-		return nil, microerror.Maskf(invalidConfigError, "%t.WebhookURL must not be empty", config)
+		return nil, microerror.Maskf(invalidConfigError, "%T.WebhookURL must not be empty", config)
 	}
 
 	var githubClient *github.Client
