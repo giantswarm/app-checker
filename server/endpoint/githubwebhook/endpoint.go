@@ -216,6 +216,8 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 		lastDeployed = updateAppCR.Status.Release.LastDeployed.Time
 	}
 
+	e.logger.LogCtx(ctx, "level", "debug", "message", fmt.Sprintf("deploying app %#q with version %#q", appCRName, payload.AppVersion))
+
 	// waiting for status update.
 	// meanwhile, creating deployment status event.
 	o := func() error {
@@ -263,6 +265,8 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 	if err != nil {
 		return microerror.Mask(err)
 	}
+
+	e.logger.LogCtx(ctx, "level", "debug", "message", fmt.Sprintf("deployed app %#q with version %#q", appCRName, payload.AppVersion))
 
 	return nil
 }
