@@ -12,7 +12,7 @@ require (
 	github.com/giantswarm/microerror v0.2.1
 	github.com/giantswarm/microkit v0.2.2
 	github.com/giantswarm/micrologger v0.3.3
-	github.com/giantswarm/operatorkit v1.0.0
+	github.com/giantswarm/operatorkit v1.2.0
 	github.com/go-kit/kit v0.10.0
 	github.com/google/go-github/v32 v32.1.0
 	github.com/spf13/viper v1.7.1
