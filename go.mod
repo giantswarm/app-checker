@@ -5,13 +5,13 @@ go 1.14
 require (
 	github.com/Masterminds/semver/v3 v3.1.0
 	github.com/giantswarm/apiextensions/v3 v3.7.0
-	github.com/giantswarm/app/v3 v3.0.0
+	github.com/giantswarm/app/v3 v3.2.0
 	github.com/giantswarm/backoff v0.2.0
 	github.com/giantswarm/k8sclient/v5 v5.0.0
 	github.com/giantswarm/microendpoint v0.2.0
 	github.com/giantswarm/microerror v0.2.1
 	github.com/giantswarm/microkit v0.2.2
-	github.com/giantswarm/micrologger v0.3.3
+	github.com/giantswarm/micrologger v0.3.4
 	github.com/giantswarm/operatorkit v1.2.0
 	github.com/go-kit/kit v0.10.0
 	github.com/google/go-github/v32 v32.1.0
