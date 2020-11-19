@@ -85,7 +85,6 @@ func mainE(ctx context.Context) error {
 			}
 		}
 
-		// Create a new custom service which implements business logic.
 		var newService *service.Service
 		{
 			c := service.Config{

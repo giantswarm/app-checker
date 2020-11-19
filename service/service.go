@@ -13,7 +13,6 @@ import (
 
 	"github.com/giantswarm/app-checker/flag"
 	"github.com/giantswarm/app-checker/pkg/project"
-	"github.com/giantswarm/app-checker/service/creator"
 )
 
 // Config represents the configuration used to create a new service.
@@ -27,8 +26,7 @@ type Config struct {
 type Service struct {
 	Version *version.Service
 
-	bootOnce       sync.Once
-	webhookCreator *creator.Creator
+	bootOnce sync.Once
 }
 
 // New creates a new configured service object.
@@ -63,27 +61,10 @@ func New(config Config) (*Service, error) {
 		}
 	}
 
-	var webhookCreator *creator.Creator
-	{
-		c := creator.CreatorConfig{
-			Logger: config.Logger,
-
-			GithubToken:      config.Viper.GetString(config.Flag.Service.Github.GitHubToken),
-			WebhookSecretKey: config.Viper.GetString(config.Flag.Service.Github.WebhookSecretKey),
-			WebhookURL:       config.Viper.GetString(config.Flag.Service.Installation.WebhookBaseURL),
-		}
-
-		webhookCreator, err = creator.NewCreator(c)
-		if err != nil {
-			return nil, microerror.Mask(err)
-		}
-	}
-
 	s := &Service{
 		Version: versionService,
 
-		bootOnce:       sync.Once{},
-		webhookCreator: webhookCreator,
+		bootOnce: sync.Once{},
 	}
 
 	return s, nil
@@ -91,6 +72,5 @@ func New(config Config) (*Service, error) {
 
 func (s *Service) Boot(ctx context.Context) {
 	s.bootOnce.Do(func() {
-		s.webhookCreator.Boot(ctx)
 	})
 }
