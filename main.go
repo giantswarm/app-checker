@@ -99,7 +99,6 @@ func mainE(ctx context.Context) error {
 				panic(microerror.JSON(err))
 			}
 
-			go newService.Boot(ctx)
 		}
 
 		// Create a new custom server which bundles our endpoints.

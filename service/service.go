@@ -3,7 +3,6 @@
 package service
 
 import (
-	"context"
 	"sync"
 
 	"github.com/giantswarm/microendpoint/service/version"
@@ -63,14 +62,7 @@ func New(config Config) (*Service, error) {
 
 	s := &Service{
 		Version: versionService,
-
-		bootOnce: sync.Once{},
 	}
 
 	return s, nil
-}
-
-func (s *Service) Boot(ctx context.Context) {
-	s.bootOnce.Do(func() {
-	})
 }
