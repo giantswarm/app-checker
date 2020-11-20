@@ -188,9 +188,9 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 
 		if *event.Repo.Name == "releases" {
 			if *event.Deployment.Ref == "master" {
-				catalog = "releases-catalog"
+				catalog = "releases"
 			} else {
-				catalog = "releases-test-catalog"
+				catalog = "releases-test"
 			}
 		}
 	}
