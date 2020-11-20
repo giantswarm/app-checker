@@ -31,6 +31,8 @@ const (
 	Name = "app/deployer"
 	// Path is the HTTP request path this endpoint is registered for.
 	Path = "/"
+
+	releases = "releases"
 )
 
 var (
@@ -159,7 +161,7 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 	{
 		var prefixName string
 		{
-			if *event.Repo.Name == "releases" {
+			if *event.Repo.Name == releases {
 				prefixName = payload.Chart
 			} else {
 				prefixName = *event.Repo.Name
@@ -186,11 +188,11 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 			catalog = "control-plane-test-catalog"
 		}
 
-		if *event.Repo.Name == "releases" {
+		if *event.Repo.Name == releases {
 			if *event.Deployment.Ref == "master" {
-				catalog = "releases"
+				catalog = releases
 			} else {
-				catalog = "releases-test"
+				catalog = fmt.Sprintf("%s-test", releases)
 			}
 		}
 	}
