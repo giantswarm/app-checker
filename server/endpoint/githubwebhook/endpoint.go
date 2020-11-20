@@ -275,6 +275,9 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 }
 
 func (e *Endpoint) updateDeploymentStatus(ctx context.Context, event *github.DeploymentEvent, status, reason string) error {
+	if len(reason) >= 140 {
+		reason = reason[0:137] + "..."
+	}
 	request := github.DeploymentStatusRequest{
 		State:       &status,
 		Description: &reason,
