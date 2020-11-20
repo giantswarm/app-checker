@@ -206,6 +206,10 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 		Name:                appCRName,
 	}
 
+	if *event.Repo.Name == releases {
+		appConfig.AppName = payload.Chart
+	}
+
 	desiredAppCR := app.NewCR(appConfig)
 
 	var created bool
@@ -253,7 +257,7 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 			if err != nil {
 				return microerror.Mask(err)
 			}
-		} else if status == "not installed" || status == "failed" {
+		} else if status == "not-installed" || status == "failed" {
 			err = e.updateDeploymentStatus(ctx, event, "failure", currentApp.Status.Release.Reason)
 			if err != nil {
 				return microerror.Mask(err)
