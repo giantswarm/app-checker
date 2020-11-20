@@ -157,10 +157,19 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 
 	var appCRName string
 	{
+		var prefixName string
+		{
+			if *event.Repo.Name == "releases" {
+				prefixName = payload.Chart
+			} else {
+				prefixName = *event.Repo.Name
+			}
+		}
+
 		if payload.Unique {
-			appCRName = fmt.Sprintf("%s-%s", *event.Repo.Name, "unique")
+			appCRName = fmt.Sprintf("%s-%s", prefixName, "unique")
 		} else {
-			appCRName = fmt.Sprintf("%s-%s", *event.Repo.Name, *event.Deployment.Ref)
+			appCRName = fmt.Sprintf("%s-%s", prefixName, *event.Deployment.Ref)
 		}
 	}
 
@@ -178,7 +187,11 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 		}
 
 		if *event.Repo.Name == "releases" {
-			catalog = "releases-catalog"
+			if *event.Deployment.Ref == "master" {
+				catalog = "releases-catalog"
+			} else {
+				catalog = "releases-test-catalog"
+			}
 		}
 	}
 
@@ -194,7 +207,6 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 	desiredAppCR := app.NewCR(appConfig)
 
 	var created bool
-
 	// Find matching app CR.
 	currentApp, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(payload.Namespace).Get(ctx, appCRName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
