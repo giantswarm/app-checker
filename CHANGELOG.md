@@ -7,4 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+### Changed
+
+- Skip app updating if we already create the new app CR.
+
+
+
+
+
 [Unreleased]: https://github.com/giantswarm/app-checker/tree/master
+

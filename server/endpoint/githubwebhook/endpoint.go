@@ -193,6 +193,8 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 
 	desiredAppCR := app.NewCR(appConfig)
 
+	var created bool
+
 	// Find matching app CR.
 	currentApp, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(payload.Namespace).Get(ctx, appCRName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
@@ -200,6 +202,7 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 		if err != nil {
 			return microerror.Mask(err)
 		}
+		created = true
 	} else if err != nil {
 		return microerror.Mask(err)
 	}
@@ -207,7 +210,7 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 	lastDeployed := time.Time{}
 
 	// if it exist, update app CR.
-	if !equals(currentApp, desiredAppCR) {
+	if !created && !equals(currentApp, desiredAppCR) {
 		desiredAppCR.ObjectMeta.ResourceVersion = currentApp.GetResourceVersion()
 		updateAppCR, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(payload.Namespace).Update(ctx, desiredAppCR, metav1.UpdateOptions{})
 		if err != nil {
@@ -272,6 +275,9 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 }
 
 func (e *Endpoint) updateDeploymentStatus(ctx context.Context, event *github.DeploymentEvent, status, reason string) error {
+	if len(reason) >= 140 {
+		reason = reason[0:137] + "..."
+	}
 	request := github.DeploymentStatusRequest{
 		State:       &status,
 		Description: &reason,
