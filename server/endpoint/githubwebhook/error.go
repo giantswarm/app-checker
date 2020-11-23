@@ -11,10 +11,6 @@ func IsDecodeFailed(err error) bool {
 	return microerror.Cause(err) == decodeFailedError
 }
 
-var executionFailedError = &microerror.Error{
-	Kind: "executionFailedError",
-}
-
 var invalidConfigError = &microerror.Error{
 	Kind: "invalidConfigError",
 }

@@ -264,6 +264,9 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 	// Waiting for status update.
 	// meanwhile, creating deployment status event.
 	err = e.updateDeploymentStatus(ctx, event, "in_progress", "")
+	if err != nil {
+		return microerror.Mask(err)
+	}
 
 	var status string
 	for r := range res.ResultChan() {
