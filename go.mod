@@ -6,7 +6,6 @@ require (
 	github.com/Masterminds/semver/v3 v3.1.0
 	github.com/giantswarm/apiextensions/v3 v3.8.0
 	github.com/giantswarm/app/v3 v3.2.0
-	github.com/giantswarm/backoff v0.2.0
 	github.com/giantswarm/k8sclient/v5 v5.0.0
 	github.com/giantswarm/microendpoint v0.2.0
 	github.com/giantswarm/microerror v0.2.1
@@ -19,6 +18,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	k8s.io/apimachinery v0.18.9
 	k8s.io/client-go v0.18.9
+	k8s.io/kubernetes v1.13.0
 )
 
 // Use fork of CAPI with Kubernetes 1.18 support.
