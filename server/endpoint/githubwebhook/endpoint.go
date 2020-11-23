@@ -250,7 +250,7 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 
 	e.logger.LogCtx(ctx, "level", "debug", "message", fmt.Sprintf("deploying app %#q with version %#q", appCRName, payload.AppVersion))
 
-	timeoutSeconds := int64(30 * time.Second)
+	timeoutSeconds := int64(30)
 	lo := metav1.ListOptions{
 		FieldSelector:  fields.OneTermEqualSelector(api.ObjectNameField, appCRName).String(),
 		TimeoutSeconds: &timeoutSeconds,
@@ -275,7 +275,7 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 			e.logger.LogCtx(ctx, "level", "info", "message", fmt.Sprintf("got error event: %#q", r.Object))
 			return nil
 
-		case watch.Modified:
+		case watch.Added, watch.Modified:
 			cr, err := key.ToApp(r.Object)
 			if err != nil {
 				return microerror.Mask(err)
