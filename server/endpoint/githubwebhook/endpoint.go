@@ -289,8 +289,12 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 
 			if resourceVersion <= lastResourceVersion {
 				// no-op
+				e.logger.LogCtx(ctx, "level", "info", "message", fmt.Sprintf("no need to reconcile for the older resourceVersion %d", resourceVersion))
 				continue
 			}
+
+			fmt.Println(resourceVersion)
+			fmt.Println(lastResourceVersion)
 
 			status = cr.Status.Release.Status
 			if status == "deployed" {
