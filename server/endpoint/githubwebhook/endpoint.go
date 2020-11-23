@@ -298,11 +298,13 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 				if err != nil {
 					return microerror.Mask(err)
 				}
+				break
 			} else if status == "not-installed" || status == "failed" {
 				err = e.updateDeploymentStatus(ctx, event, "failure", currentApp.Status.Release.Reason)
 				if err != nil {
 					return microerror.Mask(err)
 				}
+				break
 			} else {
 				err = e.updateDeploymentStatus(ctx, event, "pending", currentApp.Status.Release.Reason)
 				if err != nil {
