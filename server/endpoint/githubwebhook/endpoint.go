@@ -31,6 +31,8 @@ const (
 	Name = "app/deployer"
 	// Path is the HTTP request path this endpoint is registered for.
 	Path = "/"
+
+	releases = "releases"
 )
 
 var (
@@ -157,10 +159,19 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 
 	var appCRName string
 	{
+		var prefixName string
+		{
+			if *event.Repo.Name == releases {
+				prefixName = payload.Chart
+			} else {
+				prefixName = *event.Repo.Name
+			}
+		}
+
 		if payload.Unique {
-			appCRName = fmt.Sprintf("%s-%s", *event.Repo.Name, "unique")
+			appCRName = fmt.Sprintf("%s-%s", prefixName, "unique")
 		} else {
-			appCRName = fmt.Sprintf("%s-%s", *event.Repo.Name, *event.Deployment.Ref)
+			appCRName = fmt.Sprintf("%s-%s", prefixName, *event.Deployment.Ref)
 		}
 	}
 
@@ -177,8 +188,12 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 			catalog = "control-plane-test-catalog"
 		}
 
-		if *event.Repo.Name == "releases" {
-			catalog = "releases-catalog"
+		if *event.Repo.Name == releases {
+			if *event.Deployment.Ref == "master" {
+				catalog = releases
+			} else {
+				catalog = fmt.Sprintf("%s-test", releases)
+			}
 		}
 	}
 
@@ -191,10 +206,13 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 		Name:                appCRName,
 	}
 
+	if *event.Repo.Name == releases {
+		appConfig.AppName = payload.Chart
+	}
+
 	desiredAppCR := app.NewCR(appConfig)
 
 	var created bool
-
 	// Find matching app CR.
 	currentApp, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(payload.Namespace).Get(ctx, appCRName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
@@ -239,7 +257,7 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 			if err != nil {
 				return microerror.Mask(err)
 			}
-		} else if status == "not installed" || status == "failed" {
+		} else if status == "not-installed" || status == "failed" {
 			err = e.updateDeploymentStatus(ctx, event, "failure", currentApp.Status.Release.Reason)
 			if err != nil {
 				return microerror.Mask(err)
