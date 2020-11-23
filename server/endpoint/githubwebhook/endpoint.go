@@ -271,6 +271,10 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 	var status string
 	for r := range res.ResultChan() {
 		switch r.Type {
+		case watch.Error:
+			e.logger.LogCtx(ctx, "level", "info", "message", fmt.Sprintf("got error event: %#q", r.Object))
+			return nil
+
 		case watch.Modified:
 			cr, err := key.ToApp(r.Object)
 			if err != nil {
