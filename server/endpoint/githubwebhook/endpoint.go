@@ -216,10 +216,12 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 	desiredAppCR := app.NewCR(appConfig)
 
 	var lastResourceVersion uint64
+	var created bool
 
 	// Find matching app CR.
 	currentApp, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(payload.Namespace).Get(ctx, appCRName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
+		created = true
 		newApp, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(payload.Namespace).Create(ctx, desiredAppCR, metav1.CreateOptions{})
 		if err != nil {
 			return microerror.Mask(err)
@@ -231,12 +233,29 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 		}
 	} else if err != nil {
 		return microerror.Mask(err)
+	} else {
+		lastResourceVersion, err = getResourceVersion(currentApp.GetResourceVersion())
+		if err != nil {
+			return microerror.Mask(err)
+		}
 	}
 
-	// if app exist already, update app CR.
-	if lastResourceVersion == 0 && !equals(currentApp, desiredAppCR) {
+	if !created {
+		// if app is equal to the desired spec, no op.
+		if equals(currentApp, desiredAppCR) {
+			e.logger.LogCtx(ctx, "level", "debug", "message", fmt.Sprintf("app %#q with version %#q deployed already", appCRName, payload.AppVersion))
+
+			err = e.updateDeploymentStatus(ctx, event, "success", "")
+			if err != nil {
+				return microerror.Mask(err)
+			}
+
+			return nil
+		}
+
 		desiredAppCR.ObjectMeta.ResourceVersion = currentApp.GetResourceVersion()
 
+		// if app is not equal to the desired spec, update current app.
 		updateAppCR, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(payload.Namespace).Update(ctx, desiredAppCR, metav1.UpdateOptions{})
 		if err != nil {
 			return microerror.Mask(err)
@@ -276,7 +295,7 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 			e.logger.LogCtx(ctx, "level", "info", "message", fmt.Sprintf("got error event: %#q", r.Object))
 			return nil
 
-		case watch.Added, watch.Modified:
+		case watch.Modified:
 			cr, err := key.ToApp(r.Object)
 			if err != nil {
 				return microerror.Mask(err)
