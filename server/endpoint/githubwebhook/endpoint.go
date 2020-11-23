@@ -317,13 +317,15 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 				if err != nil {
 					return microerror.Mask(err)
 				}
-				res.Stop()
+
+				return nil
 			} else if status == "not-installed" || status == "failed" {
 				err = e.updateDeploymentStatus(ctx, event, "failure", currentApp.Status.Release.Reason)
 				if err != nil {
 					return microerror.Mask(err)
 				}
-				res.Stop()
+
+				return nil
 			} else {
 				err = e.updateDeploymentStatus(ctx, event, "pending", currentApp.Status.Release.Reason)
 				if err != nil {
@@ -333,13 +335,9 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 		}
 	}
 
-	if status == "deployed" {
-		e.logger.LogCtx(ctx, "level", "debug", "message", fmt.Sprintf("deployed app %#q with version %#q", appCRName, payload.AppVersion))
-	} else {
-		err = e.updateDeploymentStatus(ctx, event, "failure", "deployment take longer than 30 seconds")
-		if err != nil {
-			return microerror.Mask(err)
-		}
+	err = e.updateDeploymentStatus(ctx, event, "failure", "deployment take longer than 30 seconds")
+	if err != nil {
+		return microerror.Mask(err)
 	}
 
 	return nil
