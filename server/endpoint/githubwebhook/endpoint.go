@@ -289,7 +289,6 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 
 	var status string
 	for r := range res.ResultChan() {
-		fmt.Println("DEBUG1")
 		switch r.Type {
 		case watch.Error:
 			e.logger.LogCtx(ctx, "level", "info", "message", fmt.Sprintf("got error event: %#q", r.Object))
@@ -312,9 +311,6 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 				continue
 			}
 
-			fmt.Println(resourceVersion)
-			fmt.Println(lastResourceVersion)
-
 			status = cr.Status.Release.Status
 			if status == "deployed" {
 				err = e.updateDeploymentStatus(ctx, event, "success", "")
@@ -335,9 +331,7 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 				}
 			}
 		}
-		fmt.Println("DEBUG2")
 	}
-	fmt.Println("DEBUG3")
 
 	if status == "deployed" {
 		e.logger.LogCtx(ctx, "level", "debug", "message", fmt.Sprintf("deployed app %#q with version %#q", appCRName, payload.AppVersion))
