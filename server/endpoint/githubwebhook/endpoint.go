@@ -318,12 +318,13 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 			}
 
 			if status == "deployed" || status == "not-installed" || status == "failed" {
+				e.logger.LogCtx(ctx, "level", "debug", "message", fmt.Sprintf("app %#q with version %#q deployment status: %#q", appCRName, payload.AppVersion, status))
 				return nil
 			}
 		}
 	}
 
-	err = e.reportStatus(ctx, event, "failure", "deployment take longer than 30 seconds. check app-operator status")
+	err = e.reportStatus(ctx, event, "failure", "deployment take longer than 30 seconds. check app-operator logs")
 	if err != nil {
 		return microerror.Mask(err)
 	}
