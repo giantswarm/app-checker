@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
-	"strings"
+	"strconv"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/giantswarm/apiextensions/v3/pkg/apis/application/v1alpha1"
 	"github.com/giantswarm/app/v3/pkg/app"
-	"github.com/giantswarm/backoff"
+	"github.com/giantswarm/app/v3/pkg/key"
 	"github.com/giantswarm/k8sclient/v5/pkg/k8sclient"
 	"github.com/giantswarm/microerror"
 	"github.com/giantswarm/micrologger"
@@ -22,6 +22,9 @@ import (
 	"golang.org/x/oauth2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/watch"
+	api "k8s.io/kubernetes/pkg/apis/core"
 )
 
 const (
@@ -212,87 +215,152 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 
 	desiredAppCR := app.NewCR(appConfig)
 
+	var lastResourceVersion uint64
 	var created bool
+
 	// Find matching app CR.
 	currentApp, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(payload.Namespace).Get(ctx, appCRName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
-		_, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(payload.Namespace).Create(ctx, desiredAppCR, metav1.CreateOptions{})
+		created = true
+		newApp, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(payload.Namespace).Create(ctx, desiredAppCR, metav1.CreateOptions{})
 		if err != nil {
 			return microerror.Mask(err)
 		}
-		created = true
+
+		lastResourceVersion, err = getResourceVersion(newApp.GetResourceVersion())
+		if err != nil {
+			return microerror.Mask(err)
+		}
 	} else if err != nil {
 		return microerror.Mask(err)
+	} else {
+		lastResourceVersion, err = getResourceVersion(currentApp.GetResourceVersion())
+		if err != nil {
+			return microerror.Mask(err)
+		}
 	}
 
-	lastDeployed := time.Time{}
+	if !created {
+		// if app is equal to the desired spec, no op.
+		if equals(currentApp, desiredAppCR) {
+			e.logger.LogCtx(ctx, "level", "debug", "message", fmt.Sprintf("deployed already app %#q with version %#q", appCRName, payload.AppVersion))
 
-	// if it exist, update app CR.
-	if !created && !equals(currentApp, desiredAppCR) {
+			err = e.reportStatus(ctx, event, currentApp.Status.Release.Status, currentApp.Status.Release.Reason)
+			if err != nil {
+				return microerror.Mask(err)
+			}
+
+			return nil
+		}
+
 		desiredAppCR.ObjectMeta.ResourceVersion = currentApp.GetResourceVersion()
+
+		// if app is not equal to the desired spec, update current app.
 		updateAppCR, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(payload.Namespace).Update(ctx, desiredAppCR, metav1.UpdateOptions{})
 		if err != nil {
 			return microerror.Mask(err)
 		}
-		lastDeployed = updateAppCR.Status.Release.LastDeployed.Time
+
+		lastResourceVersion, err = getResourceVersion(updateAppCR.GetResourceVersion())
+		if err != nil {
+			return microerror.Mask(err)
+		}
 	}
 
 	e.logger.LogCtx(ctx, "level", "debug", "message", fmt.Sprintf("deploying app %#q with version %#q", appCRName, payload.AppVersion))
 
-	// waiting for status update.
-	// meanwhile, creating deployment status event.
-	o := func() error {
-		currentApp, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(payload.Namespace).Get(ctx, appCRName, metav1.GetOptions{})
-		if err != nil {
-			return backoff.Permanent(microerror.Mask(err))
-		}
-
-		status := strings.ToLower(currentApp.Status.Release.Status)
-		if status == "deployed" {
-			if !currentApp.Status.Release.LastDeployed.After(lastDeployed) {
-				return microerror.Maskf(waitError, "app had been not deployed after %#q, current deployment time: %#q", lastDeployed, currentApp.Status.Release.LastDeployed)
-			}
-
-			err = e.updateDeploymentStatus(ctx, event, "success", "")
-			if err != nil {
-				return microerror.Mask(err)
-			}
-		} else if status == "not-installed" || status == "failed" {
-			err = e.updateDeploymentStatus(ctx, event, "failure", currentApp.Status.Release.Reason)
-			if err != nil {
-				return microerror.Mask(err)
-			}
-
-			return backoff.Permanent(microerror.Maskf(executionFailedError, "deployment failed (status: %#q, reason: %#q)", currentApp.Status.Release.Status, currentApp.Status.Release.Reason))
-		} else {
-			err = e.updateDeploymentStatus(ctx, event, "pending", currentApp.Status.Release.Reason)
-			if err != nil {
-				return microerror.Mask(err)
-			}
-
-			return microerror.Maskf(waitError, "app not deployed status:  %#q", currentApp.Status.Release.Status)
-		}
-
-		return nil
+	timeoutSeconds := int64(30)
+	lo := metav1.ListOptions{
+		FieldSelector:  fields.OneTermEqualSelector(api.ObjectNameField, appCRName).String(),
+		TimeoutSeconds: &timeoutSeconds,
 	}
 
-	b := backoff.NewConstant(e.waitDuration, 5*time.Second)
-
-	n := func(err error, t time.Duration) {
-		e.logger.LogCtx(ctx, "level", "debug", "message", fmt.Sprintf("could not get `deployed` status from %#q app", appCRName), "stack", fmt.Sprintf("%#v", err))
-	}
-
-	err = backoff.RetryNotify(o, b, n)
+	res, err := e.k8sClient.G8sClient().ApplicationV1alpha1().Apps(payload.Namespace).Watch(ctx, lo)
 	if err != nil {
 		return microerror.Mask(err)
 	}
 
-	e.logger.LogCtx(ctx, "level", "debug", "message", fmt.Sprintf("deployed app %#q with version %#q", appCRName, payload.AppVersion))
+	// Waiting for status update.
+	// meanwhile, creating deployment status event.
+	err = e.reportStatus(ctx, event, "in_progress", "")
+	if err != nil {
+		return microerror.Mask(err)
+	}
+
+	for r := range res.ResultChan() {
+		switch r.Type {
+		case watch.Error:
+			e.logger.LogCtx(ctx, "level", "info", "message", fmt.Sprintf("got error event: %#q", r.Object))
+			return nil
+
+		case watch.Modified:
+			cr, err := key.ToApp(r.Object)
+			if err != nil {
+				return microerror.Mask(err)
+			}
+
+			resourceVersion, err := getResourceVersion(cr.GetResourceVersion())
+			if err != nil {
+				return microerror.Mask(err)
+			}
+
+			if resourceVersion <= lastResourceVersion {
+				// no-op
+				e.logger.LogCtx(ctx, "level", "info", "message", fmt.Sprintf("no need to reconcile for the older resourceVersion %d", resourceVersion))
+				continue
+			}
+
+			status := cr.Status.Release.Status
+
+			err = e.reportStatus(ctx, event, status, currentApp.Status.Release.Reason)
+			if err != nil {
+				return microerror.Mask(err)
+			}
+
+			if status == "deployed" || status == "not-installed" || status == "failed" {
+				return nil
+			}
+		}
+	}
+
+	err = e.reportStatus(ctx, event, "failure", "deployment take longer than 30 seconds. check app-operator status")
+	if err != nil {
+		return microerror.Mask(err)
+	}
 
 	return nil
 }
 
-func (e *Endpoint) updateDeploymentStatus(ctx context.Context, event *github.DeploymentEvent, status, reason string) error {
+func (e *Endpoint) reportStatus(ctx context.Context, event *github.DeploymentEvent, status, reason string) error {
+	var err error
+	switch status {
+	case "deployed":
+		err = e.updateGithubDeploymentStatus(ctx, event, "success", "")
+		if err != nil {
+			return microerror.Mask(err)
+		}
+
+		return nil
+
+	case "not-installed", "failed":
+		err = e.updateGithubDeploymentStatus(ctx, event, "failure", reason)
+		if err != nil {
+			return microerror.Mask(err)
+		}
+
+		return nil
+
+	default:
+		err = e.updateGithubDeploymentStatus(ctx, event, "pending", reason)
+		if err != nil {
+			return microerror.Mask(err)
+		}
+	}
+
+	return nil
+}
+
+func (e *Endpoint) updateGithubDeploymentStatus(ctx context.Context, event *github.DeploymentEvent, status, reason string) error {
 	if len(reason) >= 140 {
 		reason = reason[0:137] + "..."
 	}
@@ -339,6 +407,15 @@ func equals(current, desired *v1alpha1.App) bool {
 	}
 
 	return true
+}
+
+func getResourceVersion(resourceVersion string) (uint64, error) {
+	r, err := strconv.ParseUint(resourceVersion, 0, 64)
+	if err != nil {
+		return 0, microerror.Mask(err)
+	}
+
+	return r, nil
 }
 
 func parsePayload(rawPayload []byte) (*payload, error) {
