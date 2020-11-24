@@ -243,9 +243,9 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 	if !created {
 		// if app is equal to the desired spec, no op.
 		if equals(currentApp, desiredAppCR) {
-			e.logger.LogCtx(ctx, "level", "debug", "message", fmt.Sprintf("app %#q with version %#q deployed already", appCRName, payload.AppVersion))
+			e.logger.LogCtx(ctx, "level", "debug", "message", fmt.Sprintf("deployed already app %#q with version %#q", appCRName, payload.AppVersion))
 
-			err = e.updateDeploymentStatus(ctx, event, "success", "")
+			err = e.reportStatus(ctx, event, currentApp.Status.Release.Status, currentApp.Status.Release.Reason)
 			if err != nil {
 				return microerror.Mask(err)
 			}
@@ -282,12 +282,11 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 
 	// Waiting for status update.
 	// meanwhile, creating deployment status event.
-	err = e.updateDeploymentStatus(ctx, event, "in_progress", "")
+	err = e.reportStatus(ctx, event, "in_progress", "")
 	if err != nil {
 		return microerror.Mask(err)
 	}
 
-	var status string
 	for r := range res.ResultChan() {
 		switch r.Type {
 		case watch.Error:
@@ -311,31 +310,20 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 				continue
 			}
 
-			status = cr.Status.Release.Status
-			if status == "deployed" {
-				err = e.updateDeploymentStatus(ctx, event, "success", "")
-				if err != nil {
-					return microerror.Mask(err)
-				}
+			status := cr.Status.Release.Status
 
-				return nil
-			} else if status == "not-installed" || status == "failed" {
-				err = e.updateDeploymentStatus(ctx, event, "failure", currentApp.Status.Release.Reason)
-				if err != nil {
-					return microerror.Mask(err)
-				}
+			err = e.reportStatus(ctx, event, status, currentApp.Status.Release.Reason)
+			if err != nil {
+				return microerror.Mask(err)
+			}
 
+			if status == "deployed" || status == "not-installed" || status == "failed" {
 				return nil
-			} else {
-				err = e.updateDeploymentStatus(ctx, event, "pending", currentApp.Status.Release.Reason)
-				if err != nil {
-					return microerror.Mask(err)
-				}
 			}
 		}
 	}
 
-	err = e.updateDeploymentStatus(ctx, event, "failure", "deployment take longer than 30 seconds")
+	err = e.reportStatus(ctx, event, "failure", "deployment take longer than 30 seconds. check app-operator status")
 	if err != nil {
 		return microerror.Mask(err)
 	}
@@ -343,7 +331,36 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 	return nil
 }
 
-func (e *Endpoint) updateDeploymentStatus(ctx context.Context, event *github.DeploymentEvent, status, reason string) error {
+func (e *Endpoint) reportStatus(ctx context.Context, event *github.DeploymentEvent, status, reason string) error {
+	var err error
+	switch status {
+	case "deployed":
+		err = e.updateGithubDeploymentStatus(ctx, event, "success", "")
+		if err != nil {
+			return microerror.Mask(err)
+		}
+
+		return nil
+
+	case "not-installed", "failed":
+		err = e.updateGithubDeploymentStatus(ctx, event, "failure", reason)
+		if err != nil {
+			return microerror.Mask(err)
+		}
+
+		return nil
+
+	default:
+		err = e.updateGithubDeploymentStatus(ctx, event, "pending", reason)
+		if err != nil {
+			return microerror.Mask(err)
+		}
+	}
+
+	return nil
+}
+
+func (e *Endpoint) updateGithubDeploymentStatus(ctx context.Context, event *github.DeploymentEvent, status, reason string) error {
 	if len(reason) >= 140 {
 		reason = reason[0:137] + "..."
 	}
