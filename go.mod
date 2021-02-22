@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	github.com/Masterminds/semver/v3 v3.1.1
-	github.com/giantswarm/apiextensions/v3 v3.18.1
+	github.com/giantswarm/apiextensions/v3 v3.18.2
 	github.com/giantswarm/app/v4 v4.4.0
 	github.com/giantswarm/k8sclient/v5 v5.10.0
 	github.com/giantswarm/microendpoint v0.2.0
