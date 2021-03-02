@@ -21,5 +21,10 @@ require (
 	k8s.io/kubernetes v1.13.0
 )
 
-// Use fork of CAPI with Kubernetes 1.18 support.
-replace sigs.k8s.io/cluster-api => github.com/giantswarm/cluster-api v0.3.10-gs
+replace (
+	github.com/coreos/etcd v3.3.10+incompatible => github.com/coreos/etcd v3.3.25+incompatible
+	github.com/coreos/etcd v3.3.13+incompatible => github.com/coreos/etcd v3.3.25+incompatible
+	github.com/coreos/etcd v3.3.17+incompatible => github.com/coreos/etcd v3.3.25+incompatible
+	// Use fork of CAPI with Kubernetes 1.18 support.
+	sigs.k8s.io/cluster-api => github.com/giantswarm/cluster-api v0.3.10-gs
+)
