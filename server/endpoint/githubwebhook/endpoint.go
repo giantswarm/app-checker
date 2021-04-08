@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/watch"
-	api "k8s.io/kubernetes/pkg/apis/core"
 )
 
 const (
@@ -271,7 +270,7 @@ func (e *Endpoint) processDeploymentEvent(ctx context.Context, event *github.Dep
 
 	timeoutSeconds := int64(30)
 	lo := metav1.ListOptions{
-		FieldSelector:  fields.OneTermEqualSelector(api.ObjectNameField, appCRName).String(),
+		FieldSelector:  fields.OneTermEqualSelector("metadata.name", appCRName).String(),
 		TimeoutSeconds: &timeoutSeconds,
 	}
 

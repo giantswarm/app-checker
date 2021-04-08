@@ -4,8 +4,8 @@ go 1.14
 
 require (
 	github.com/Masterminds/semver/v3 v3.1.1
-	github.com/giantswarm/apiextensions/v3 v3.19.0
-	github.com/giantswarm/app/v4 v4.5.0
+	github.com/giantswarm/apiextensions/v3 v3.22.0
+	github.com/giantswarm/app/v4 v4.9.0
 	github.com/giantswarm/k8sclient/v5 v5.11.0
 	github.com/giantswarm/microendpoint v0.2.0
 	github.com/giantswarm/microerror v0.3.0
@@ -18,7 +18,6 @@ require (
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	k8s.io/apimachinery v0.18.9
 	k8s.io/client-go v0.18.9
-	k8s.io/kubernetes v1.13.0
 )
 
 replace (
