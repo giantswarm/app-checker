@@ -15,7 +15,7 @@ require (
 	github.com/go-kit/kit v0.10.0
 	github.com/google/go-github/v32 v32.1.0
 	github.com/spf13/viper v1.7.1
-	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
+	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
 	k8s.io/apimachinery v0.18.19
 	k8s.io/client-go v0.18.19
 )
